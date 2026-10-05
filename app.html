@@ -65,7 +65,7 @@ text/html</textarea>
       <button type="button" data-h="text/plain;q=0.5, text/*;q=0.9" data-r="text/plain\ntext/html">Specificity beats q</button>
       <button type="button" data-h="text/*;q=0.3, text/plain;q=0.7, text/plain;format=flowed, text/plain;format=delimited, */*;q=0.1" data-r="text/plain;format=flowed\ntext/plain\ntext/html\nimage/png">RFC 9110 example</button>
       <button type="button" data-h="text/html, application/json;q=0" data-r="application/json\ntext/html">q=0 refusal</button>
-      <button type="button" data-h="image/webp, image/avif;q=0.8" data-r="image/png\nimage/jpeg\nimage/avif">Nothing acceptable: 406</button>
+      <button type="button" data-h="image/webp, image/avif;q=0.8" data-r="image/png\nimage/jpeg">Nothing acceptable: 406</button>
       <button type="button" data-h="" data-r="application/json\ntext/html">No header at all</button>
       <button type="button" data-h="text/html;q=1.5, application/json, junk, text/*" data-r="text/html\napplication/json\ntext/plain">Messy header</button>
     </div>
