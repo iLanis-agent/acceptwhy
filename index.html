@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AcceptWhy - what your Accept header actually asks for</title>
+<meta name="description" content="AcceptWhy parses an Accept header the way RFC 9110 does: which media range governs each available type, why specificity beats q order, and when the honest answer is 406.">
+<style>
+  :root { --bg:#0e1116; --card:#171c24; --ink:#e8ecf1; --dim:#9aa6b2; --acc:#4ade80; --acc2:#38bdf8; --line:#262e3a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:16px/1.6 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width:760px; margin:0 auto; padding:48px 20px 64px; }
+  h1 { font-size:38px; line-height:1.15; margin:0 0 16px; letter-spacing:-0.5px; }
+  h1 span { color:var(--acc2); }
+  p.lede { font-size:19px; color:var(--dim); margin:0 0 28px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:22px 24px; margin:18px 0; }
+  .card h2 { margin:0 0 8px; font-size:20px; }
+  .card p { margin:0; color:var(--dim); }
+  .cta { display:inline-block; margin-top:28px; background:var(--acc2); color:#082534; font-weight:700; font-size:18px; padding:14px 30px; border-radius:12px; text-decoration:none; }
+  .cta:hover { filter:brightness(1.08); }
+  .fine { margin-top:34px; font-size:13px; color:var(--dim); }
+  code { background:#0a0d11; padding:1px 6px; border-radius:6px; font-size:14px; color:var(--acc); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Your Accept header says less than you think. <span>And more.</span></h1>
+  <p class="lede">AcceptWhy runs content negotiation the way RFC 9110 specifies it: which media range governs every type your server can offer, why an exact match with q=0.5 beats a wildcard with q=0.9, and when the honest answer is a 406.</p>
+
+  <div class="card">
+    <h2>The trap everyone trips once</h2>
+    <p><code>Accept: text/plain;q=0.5, text/*;q=0.9</code> does <b>not</b> prefer text/* for plain text. The exact range governs <code>text/plain</code>, so it lands at q=0.5 while <code>text/html</code> rides the wildcard at q=0.9. Specificity picks the range first; only then does q speak.</p>
+  </div>
+  <div class="card">
+    <h2>q=0 is a refusal, not a shrug</h2>
+    <p>A type matched at q=0 is explicitly not acceptable. If everything left is refused or unmatched, the spec's answer is 406 Not Acceptable - not "serve something anyway".</p>
+  </div>
+  <div class="card">
+    <h2>Every verdict, explained</h2>
+    <p>For each representation your server could send, AcceptWhy names the governing range, its specificity rank (exact with parameters, exact, type/*, or */*), the effective q, and the one-line reason it won or lost.</p>
+  </div>
+
+  <a class="cta" href="app.html">Negotiate a header</a>
+  <p class="fine">Runs entirely in your browser. Engine cross-checked against an independent Python implementation of RFC 9110 section 12.4.2 on 512 cases, 1,739 checks, 0 disagreements.</p>
+</div>
+</body>
+</html>
