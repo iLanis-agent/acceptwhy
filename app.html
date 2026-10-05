@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AcceptWhy - Accept header negotiation, explained</title>
+<style>
+  :root { --bg:#0e1116; --card:#171c24; --ink:#e8ecf1; --dim:#9aa6b2; --acc:#4ade80; --acc2:#38bdf8; --warn:#fbbf24; --bad:#f87171; --line:#262e3a; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width:980px; margin:0 auto; padding:24px 18px 80px; }
+  header { display:flex; align-items:baseline; gap:12px; flex-wrap:wrap; margin-bottom:14px; }
+  header h1 { font-size:24px; margin:0; letter-spacing:-0.3px; }
+  header .tag { color:var(--dim); font-size:14px; }
+  header a { color:var(--acc2); text-decoration:none; font-size:13px; margin-left:auto; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:16px 18px; margin-bottom:14px; }
+  label { display:block; font-size:12px; color:var(--dim); margin:0 0 4px; text-transform:uppercase; letter-spacing:0.6px; }
+  textarea { width:100%; background:#0a0d11; border:1px solid var(--line); color:var(--ink); border-radius:8px; padding:9px 10px; font:14px/1.5 ui-monospace, Menlo, Consolas, monospace; }
+  textarea:focus { outline:2px solid var(--acc2); }
+  .presets { display:flex; gap:6px; flex-wrap:wrap; margin-top:10px; }
+  .presets button { background:#0a0d11; border:1px solid var(--line); color:var(--acc2); border-radius:999px; padding:6px 12px; font-size:12.5px; cursor:pointer; }
+  .presets button:hover { border-color:var(--acc2); }
+  .verdict { border-radius:10px; padding:14px 16px; font-size:17px; font-weight:600; margin-bottom:14px; border:1px solid; }
+  .verdict.serve { background:#07220f; border-color:var(--acc); color:var(--acc); }
+  .verdict.fail { background:#2a0d0d; border-color:var(--bad); color:var(--bad); }
+  .verdict small { display:block; font-weight:400; font-size:13px; color:var(--dim); margin-top:4px; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; margin-top:6px; }
+  th, td { text-align:left; padding:7px 9px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { color:var(--dim); font-weight:600; font-size:11.5px; text-transform:uppercase; letter-spacing:0.5px; }
+  td.mono, .mono { font-family:ui-monospace, Menlo, Consolas, monospace; font-size:13px; }
+  .qbar { display:inline-block; height:8px; border-radius:4px; background:var(--acc); vertical-align:middle; margin-right:8px; }
+  .qbar.zero { background:var(--bad); }
+  .win { color:var(--acc); font-weight:700; }
+  .lose { color:var(--dim); }
+  .refuse { color:var(--bad); }
+  .note { color:var(--warn); font-size:13px; margin:6px 0 0; }
+  h3 { margin:0 0 10px; font-size:16px; }
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  @media (max-width:760px){ .grid{ grid-template-columns:1fr; } }
+  details { margin-top:12px; }
+  summary { cursor:pointer; color:var(--acc2); font-size:14px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>AcceptWhy</h1>
+    <span class="tag">content negotiation, the way RFC 9110 actually runs it</span>
+    <a href="index.html">&larr; about</a>
+  </header>
+
+  <div class="card">
+    <div class="grid">
+      <div>
+        <label for="header">Accept header</label>
+        <textarea id="header" rows="4" spellcheck="false">text/plain;q=0.5, text/*;q=0.9</textarea>
+      </div>
+      <div>
+        <label for="reps">Your server can offer (one per line)</label>
+        <textarea id="reps" rows="4" spellcheck="false">text/plain
+text/html</textarea>
+      </div>
+    </div>
+    <div class="presets">
+      <button type="button" data-h="text/plain;q=0.5, text/*;q=0.9" data-r="text/plain\ntext/html">Specificity beats q</button>
+      <button type="button" data-h="text/*;q=0.3, text/plain;q=0.7, text/plain;format=flowed, text/plain;format=delimited, */*;q=0.1" data-r="text/plain;format=flowed\ntext/plain\ntext/html\nimage/png">RFC 9110 example</button>
+      <button type="button" data-h="text/html, application/json;q=0" data-r="application/json\ntext/html">q=0 refusal</button>
+      <button type="button" data-h="image/webp, image/avif;q=0.8" data-r="image/png\nimage/jpeg\nimage/avif">Nothing acceptable: 406</button>
+      <button type="button" data-h="" data-r="application/json\ntext/html">No header at all</button>
+      <button type="button" data-h="text/html;q=1.5, application/json, junk, text/*" data-r="text/html\napplication/json\ntext/plain">Messy header</button>
+    </div>
+  </div>
+
+  <div id="verdict" class="verdict serve"></div>
+
+  <div class="card">
+    <h3>Each offer, judged</h3>
+    <table id="results"></table>
+    <div id="notes"></div>
+  </div>
+
+  <div class="card">
+    <h3>The ranges your header sent</h3>
+    <table id="ranges"></table>
+    <details>
+      <summary>How the spec reads this</summary>
+      <p class="lose" style="font-size:13.5px; margin-top:8px">RFC 9110 section 12.4.2: the q for a representation comes from the <b>most specific</b> media range that matches it - an exact type/subtype with parameters outranks an exact type/subtype, which outranks type/*, which outranks */*. The header's order does not matter; specificity and q do. q=0 means "not acceptable". If nothing survives, the correct response is 406 Not Acceptable. Ties in q are the server's free choice - here, first listed wins.</p>
+    </details>
+  </div>
+</div>
+<script src="engine.js"></script>
+<script>
+(function(){
+'use strict';
+var $=function(id){return document.getElementById(id);};
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function render(){
+  var header=$('header').value;
+  var reps=$('reps').value.split('\n').map(function(s){return s.trim();}).filter(function(s){return s.length>0;});
+  var out=AcceptWhy.negotiate(header,reps);
+  var v=$('verdict');
+  if(out.status==='serve'){
+    var w=out.results[out.winner];
+    var tieNote=out.tied.length>1?' Tied at q='+w.q+' with '+(out.tied.length-1)+' other(s) - server order breaks the tie.':'';
+    v.className='verdict serve';
+    v.innerHTML='Serve <span class="mono">'+esc(w.input)+'</span> at q='+w.q+'<small>Governed by "'+esc(w.range)+'" ('+esc(w.rankName)+').'+esc(tieNote)+'</small>';
+  }else{
+    v.className='verdict fail';
+    v.innerHTML='406 Not Acceptable<small>Every offer is either refused outright (q=0) or covered by no media range in the header.</small>';
+  }
+  var rows='<tr><th>Offer</th><th>Effective q</th><th>Governing range</th><th>Verdict</th></tr>';
+  out.results.forEach(function(r,i){
+    if(!r.valid){
+      rows+='<tr><td class="mono">'+esc(r.input)+'</td><td>-</td><td>-</td><td class="refuse">'+esc(r.reason)+'</td></tr>';
+      return;
+    }
+    var isWin=(i===out.winner);
+    var qtxt=r.q==null?'no match':String(r.q);
+    var bar=r.acceptable?'<span class="qbar" style="width:'+Math.round(60*r.q)+'px"></span>':(r.q===0?'<span class="qbar zero" style="width:6px"></span>':'');
+    var verdict=isWin?'<span class="win">served</span>':(r.acceptable?'<span class="lose">acceptable, outranked</span>':'<span class="refuse">refused</span>');
+    rows+='<tr><td class="mono">'+esc(r.input)+'</td><td>'+bar+qtxt+'</td><td class="mono">'+esc(r.range||'-')+'<br><span class="lose">'+esc(r.rankName||'')+'</span></td><td>'+verdict+'<br><span class="lose">'+esc(r.reason)+'</span></td></tr>';
+  });
+  $('results').innerHTML=rows;
+  $('notes').innerHTML=out.notes.map(function(n){return '<p class="note">&#9888; '+esc(n)+'</p>';}).join('');
+  var rr='<tr><th>Range</th><th>q</th><th>Kind</th></tr>';
+  out.ranges.forEach(function(g){
+    var kind=g.type==='*'?'*/*':(g.subtype==='*'?'type/*':(Object.keys(g.params).length?'exact + parameters':'exact'));
+    var ps=Object.keys(g.params).map(function(k){return k+'='+g.params[k];}).join(', ');
+    rr+='<tr><td class="mono">'+esc(g.raw)+'</td><td>'+g.q+'</td><td>'+kind+(ps?' <span class="lose">('+esc(ps)+')</span>':'')+'</td></tr>';
+  });
+  $('ranges').innerHTML=rr;
+}
+['header','reps'].forEach(function(id){$(id).addEventListener('input',render);});
+Array.prototype.forEach.call(document.querySelectorAll('.presets button'),function(b){
+  b.addEventListener('click',function(){
+    $('header').value=b.getAttribute('data-h');
+    $('reps').value=b.getAttribute('data-r').replace(/\\n/g,'\n');
+    render();
+  });
+});
+render();
+})();
+</script>
+</body>
+</html>
