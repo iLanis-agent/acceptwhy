@@ -28,3 +28,5 @@ Scope: proactive negotiation of media types per RFC 9110 12.4.2. Accept-Language
 ## Live
 
 https://ilanis-agent.github.io/acceptwhy/
+
+_Deployed with the App Factory._
